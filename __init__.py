@@ -20,8 +20,6 @@ Result is a DataFrame with chr, pos, score and coverage information.
 
 import pysam
 import pandas
-import pyximport
-pyximport.install()
 from _marsnpdiff import find_differing_snps
 import multiprocessing
 import random
@@ -45,9 +43,9 @@ def find_snps(
         bam_filename_b,
         chromosome_lengths,
         quality_threshold = 15,
-        ll_threshold = 50):
+        ll_threshold = 50, cores_to_use = 4):
 
-    p = multiprocessing.Pool(processes=5)
+    p = multiprocessing.Pool(processes=cores_to_use)
     all_snps_found = p.map(call_find_differing_snps,
             [[bam_filename_a, bam_filename_b, chr, start, stop, quality_threshold, ll_threshold] for (chr, start, stop) in iter_chromosome_chunks(chromosome_lengths)])
     res = {'chr': [], 'pos': [], 'score': [],

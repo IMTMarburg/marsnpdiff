@@ -57,10 +57,11 @@ def count_coverage(samfile, chr, start, stop, quality_threshold = 15):
                         count_t[refpos - _start] += 1
     return count_a, count_c, count_g, count_t
 
-cdef float ll_99 = math.log(0.99)
-cdef float ll_003 = math.log(0.01/3)
-cdef float ll_005 = math.log(0.05)
-cdef float ll_495 = math.log(0.99/2)
+cdef read_error_prob = 0.001  #retrieved from http://www.molecularecologist.com/next-gen-table-3c-2014/
+cdef float ll_99 = math.log(1 - read_error_prob)
+cdef float ll_003 = math.log(read_error_prob/3)
+cdef float ll_005 = math.log(read_error_prob/2)
+cdef float ll_495 = math.log((1-read_error_prob)/2)
 cdef float ll_25 = math.log(0.25)
 
 llPosToHaplotype = [ 'AA', 'AC','AG','AT', 'CC', 'CG','CT','GG', 'GT', 'TT', 'NN']
