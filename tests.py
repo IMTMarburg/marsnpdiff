@@ -91,12 +91,12 @@ class LLTests(unittest.TestCase):
                 [-2, 0, 0, -1, -1, -1.3],  # 8
                 [-2, 0, 10, -1, -1, -1.11],  # 9
                 [-2, 0, 0, -1, -1, -1.0001],  # 10
-            ]
+        ]
         input = [np.array(x, dtype=np.float32) for x in input]
         valueMax, argMax = _marsnpdiff.llMax(input)
         self.assertTrue((np.array([0, 0, 9, 1, 2, 3]) == argMax).all())
         self.assertFalse(
-                (np.abs(np.array([-1, 0, 10, -0.01, -0.5, -1])-valueMax) > 0.0001).any())
+                (np.abs(np.array([-1, 0, 10, -0.01, -0.5, -1]) - valueMax) > 0.0001).any())
 
 
 class ScoreTests(unittest.TestCase):

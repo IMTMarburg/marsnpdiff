@@ -244,7 +244,8 @@ def score_coverage_differences(coverage_a, coverage_b):
     
     llArgMaxA[(llMaxA == 0) | (llMaxB == 0)] = 99
     llArgMaxB[(llMaxA == 0) | (llMaxB == 0)] = 99
-    #candidates are all where the max LL derived haplotype is not the same
+    # candidates are all where the max LL derived haplotype is not the same
+    # filtering by score happens later on
     candidates = np.where(llArgMaxA != llArgMaxB)[0]
     haplotypeA = llArgMaxA[candidates]
     haplotypeB = llArgMaxB[candidates]
@@ -292,22 +293,3 @@ def score_coverage_differences(coverage_a, coverage_b):
             result_cov_b,
             score,
             )
-
-
-def find_differing_snps(samfile_a, samfile_b, chr, start, stop, quality_threshold = 15, ll_threshold = 50):
-    """Find actual differences between two bam files.
-    @quality_threshold controls which reads/bases are actually considered.
-    @ll_threshold: Log likelihood difference must be above this value for the SNP to be reported
-    """
-    coverage_a = count_coverage(samfile_a, chr, start, stop, quality_threshold)
-    coverage_b = count_coverage(samfile_b, chr, start, stop, quality_threshold)
-    positions, coverage_a , coverage_b, scores = score_coverage_differences(coverage_a, coverage_b)
-    ok = scores >= ll_threshold
-    return {
-            'chr': chr,
-            'positions': positions[ok] + start, 
-            'coverageA': coverage_a[:,ok],
-            'coverageB': coverage_b[:,ok],
-            'scores': scores[ok]
-            }
-    
