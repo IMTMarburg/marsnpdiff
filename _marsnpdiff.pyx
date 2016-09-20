@@ -9,14 +9,17 @@ import numpy as np
 cimport numpy as np
 from cpython cimport array
 cimport cython
-
 import math
+import scipy.linalg.blas as blas
 
 DTYPE = np.uint32
-# "ctypedef" assigns a corresponding compile-time type to DTYPE_t. For
-# every type in the numpy module there's a corresponding compile-time
-# type with a _t-suffix.
 ctypedef np.uint32_t DTYPE_t
+
+DTYPE_flt = np.float32
+ctypedef np.float32_t DTYPE_flt_t
+
+DTYPE_byte = np.uint8
+ctypedef np.uint8_t DTYPE_byte_t
 
 @cython.boundscheck(False) #we do manual bounds checking
 def count_coverage(samfile, chr, start, stop, quality_threshold = 15):
@@ -29,10 +32,10 @@ def count_coverage(samfile, chr, start, stop, quality_threshold = 15):
     cdef int _start = start
     cdef int _stop = stop
     cdef int length = _stop - _start
-    cdef np.ndarray[DTYPE_t, ndim=1] count_a = np.zeros((length,), dtype=DTYPE)
-    cdef np.ndarray[DTYPE_t, ndim=1] count_c = np.zeros((length,), dtype=DTYPE)
-    cdef np.ndarray[DTYPE_t, ndim=1] count_g = np.zeros((length,), dtype=DTYPE)
-    cdef np.ndarray[DTYPE_t, ndim=1] count_t = np.zeros((length,), dtype=DTYPE)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_a = np.zeros((length,), dtype=DTYPE_flt)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_c = np.zeros((length,), dtype=DTYPE_flt)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_g = np.zeros((length,), dtype=DTYPE_flt)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_t = np.zeros((length,), dtype=DTYPE_flt)
     cdef char * seq
     cdef array.array quality
     cdef int qpos
@@ -66,39 +69,120 @@ cdef float ll_25 = math.log(0.25)
 
 llPosToHaplotype = [ 'AA', 'AC','AG','AT', 'CC', 'CG','CT','GG', 'GT', 'TT', 'NN']
 
-cdef _logLikelihood2(np.ndarray count_a, np.ndarray count_c, np.ndarray count_g, np.ndarray count_t):
-    res = np.zeros((11, count_a.shape[0]), dtype=np.float)
-    d = {'count_a': count_a, 'count_c': count_c, 'count_g': count_g, 'count_t': count_t,
-            'll_99': ll_99, 'll_003': ll_003, 'll_005': ll_005, 'll_495': ll_495, 'll_25': ll_25}
-    count_a__ll_003 = count_a * ll_003
-    count_c__ll_003 = count_c * ll_003
-    count_g__ll_003 = count_g * ll_003
-    count_t__ll_003 = count_t * ll_003
-    count_a__ll_005 = count_a * ll_005
-    count_c__ll_005 = count_c * ll_005
-    count_g__ll_005 = count_g * ll_005
-    count_t__ll_005 = count_t * ll_005
-    count_a__ll_495 = count_a * ll_495
-    count_c__ll_495 = count_c * ll_495
-    count_g__ll_495 = count_g * ll_495
-    count_t__ll_495 = count_t * ll_495
 
-    d = {'count_a': count_a, 'count_c': count_c, 'count_g': count_g, 'count_t': count_t,
-         'count_a__ll_003': count_a__ll_003, 
-         'count_c__ll_003': count_c__ll_003, 
-         'count_g__ll_003': count_g__ll_003, 'count_t__ll_003': count_t__ll_003, 'count_a__ll_005': count_a__ll_005, 'count_c__ll_005': count_c__ll_005, 'count_g__ll_005': count_g__ll_005, 'count_t__ll_005': count_t__ll_005, 'count_a__ll_495': count_a__ll_495, 'count_c__ll_495': count_c__ll_495, 'count_g__ll_495': count_g__ll_495, 'count_t__ll_495': count_t__ll_495,
-        'll_99': ll_99, 'll_003': ll_003, 'll_005': ll_005, 'll_495': ll_495, 'll_25': ll_25}
-    res[0,:] = numexpr.evaluate("(count_a * ll_99 + count_c__ll_003 + count_g__ll_003 + count_t__ll_003)",d)#, 'AA'), 0
-    res[1,:] = numexpr.evaluate("(count_a__ll_495 + count_c__ll_495 + count_g__ll_005 + count_t__ll_005)",d)#, 'AC'),1
-    res[2,:] = numexpr.evaluate("(count_a__ll_495 + count_c__ll_005 + count_g__ll_495 + count_t__ll_005)",d)#, 'AG'),2
-    res[3,:] = numexpr.evaluate("(count_a__ll_495 + count_c__ll_005 + count_g__ll_005 + count_t__ll_495)",d)#, 'AT'),3
-    res[4,:] = numexpr.evaluate("(count_a__ll_003 + count_c * ll_99 + count_g__ll_003 + count_t__ll_003)",d)#, 'CC'), 4
-    res[5,:] = numexpr.evaluate("(count_a__ll_005 + count_c__ll_495 + count_g__ll_495 + count_t__ll_005)",d)#, 'CG'),5
-    res[6,:] = numexpr.evaluate("(count_a__ll_005 + count_c__ll_495 + count_g__ll_005 + count_t__ll_495)",d)#, 'CT'),6
-    res[7,:] = numexpr.evaluate("(count_a__ll_005 + count_c__ll_005 + count_g * ll_99 + count_t__ll_005)",d)#, 'GG'), 7
-    res[8,:] = numexpr.evaluate("(count_a__ll_005 + count_c__ll_005 + count_g__ll_495 + count_t__ll_495)",d)#, 'GT'), 8
-    res[9,:] = numexpr.evaluate("(count_a__ll_003 + count_c__ll_003 + count_g__ll_003 + count_t * ll_99)",d)#, 'TT'), 9
-    res[10,:] = numexpr.evaluate("(count_a * ll_25 + count_c * ll_25 + count_g * ll_25 + count_t * ll_25)",d)#, 'NN'), 10
+def cpy_sscal(factor, vector):
+    """Convert blas.sscall into a non-input modifying variant"""
+    result = vector.copy()
+    blas.sscal(factor, result)
+    return result
+
+cdef _logLikelihood2(np.ndarray[DTYPE_flt_t, ndim=1] count_a, np.ndarray[DTYPE_flt_t, ndim=1] count_c, np.ndarray[DTYPE_flt_t, ndim=1] count_g, np.ndarray[DTYPE_flt_t, ndim=1] count_t):
+    res = []
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_a__ll_003 = cpy_sscal(ll_003, count_a) #count_a * ll_003
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_c__ll_003 = cpy_sscal(ll_003, count_c)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_g__ll_003 = cpy_sscal(ll_003, count_g)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_t__ll_003 = cpy_sscal(ll_003, count_t)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_a__ll_005 = cpy_sscal(ll_005, count_a)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_c__ll_005 = cpy_sscal(ll_005, count_c)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_g__ll_005 = cpy_sscal(ll_005, count_g)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_t__ll_005 = cpy_sscal(ll_005, count_t)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_a__ll_495 = cpy_sscal(ll_495, count_a)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_c__ll_495 = cpy_sscal(ll_495, count_c)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_g__ll_495 = cpy_sscal(ll_495, count_g)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] count_t__ll_495 = cpy_sscal(ll_495, count_t)
+
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] temp1
+
+    #res[0,:] = numexpr.evaluate("(count_a * ll_99 + count_c__ll_003 + count_g__ll_003 + count_t__ll_003)",d)#, 'AA'), 0
+    temp1 = cpy_sscal(ll_99, count_a)
+    blas.saxpy(count_c__ll_003, temp1)
+    blas.saxpy(count_g__ll_003, temp1)
+    blas.saxpy(count_t__ll_003, temp1)
+    res.append(temp1.copy())
+
+    #res[1,:] = numexpr.evaluate("(count_a__ll_495 + count_c__ll_495 + count_g__ll_005 + count_t__ll_005, temp1)",d)#, 'AC'),1
+    temp1 = count_a__ll_495.copy()
+    blas.saxpy(count_c__ll_495, temp1)
+    blas.saxpy(count_g__ll_005, temp1)
+    blas.saxpy(count_t__ll_005, temp1)
+    res.append(temp1.copy())
+
+    #res[2,:] = numexpr.evaluate("(count_a__ll_495 + count_c__ll_005 + count_g__ll_495 + count_t__ll_005, temp1)",d)#, 'AG'),2
+    temp1 = count_a__ll_495.copy()
+    blas.saxpy(count_c__ll_005, temp1)
+    blas.saxpy(count_g__ll_495, temp1)
+    blas.saxpy(count_t__ll_005, temp1)
+    res.append(temp1.copy())
+
+    #res[3,:] = numexpr.evaluate("(count_a__ll_495 + count_c__ll_005 + count_g__ll_005 + count_t__ll_495, temp1)",d)#, 'AT'),3
+    temp1 = count_a__ll_495.copy()
+    blas.saxpy(count_c__ll_005, temp1)
+    blas.saxpy(count_g__ll_005, temp1)
+    blas.saxpy(count_t__ll_495, temp1)
+    res.append(temp1.copy())
+
+    #res[4,:] = numexpr.evaluate("(count_a__ll_003 + count_c * ll_99 + count_g__ll_003 + count_t__ll_003, temp1)",d)#, 'CC'), 4
+    temp1 = cpy_sscal(ll_99, count_c)
+    blas.saxpy(count_a__ll_003, temp1)
+    blas.saxpy(count_g__ll_003, temp1)
+    blas.saxpy(count_t__ll_003, temp1)
+    res.append(temp1.copy())
+
+    #res[5,:] = numexpr.evaluate("(count_a__ll_005 + count_c__ll_495 + count_g__ll_495 + count_t__ll_005, temp1)",d)#, 'CG'),5
+    temp1 = count_a__ll_005.copy()
+    blas.saxpy(count_c__ll_495, temp1)
+    blas.saxpy(count_g__ll_495, temp1)
+    blas.saxpy(count_t__ll_005, temp1)
+    res.append(temp1.copy())
+
+    #res[6,:] = numexpr.evaluate("(count_a__ll_005 + count_c__ll_495 + count_g__ll_005 + count_t__ll_495, temp1)",d)#, 'CT'),6
+    temp1 = count_a__ll_005.copy()
+    blas.saxpy(count_c__ll_495, temp1)
+    blas.saxpy(count_g__ll_005, temp1)
+    blas.saxpy(count_t__ll_495, temp1)
+    res.append(temp1.copy())
+
+    #res[7,:] = numexpr.evaluate("(count_a__ll_005 + count_c__ll_005 + count_g * ll_99 + count_t__ll_005, temp1)",d)#, 'GG'), 7
+    temp1 = cpy_sscal(ll_99, count_g)
+    blas.saxpy(count_a__ll_005, temp1)
+    blas.saxpy(count_c__ll_005, temp1)
+    blas.saxpy(count_t__ll_005, temp1)
+    res.append(temp1.copy())
+
+    #res[8,:] = numexpr.evaluate("(count_a__ll_005 + count_c__ll_005 + count_g__ll_495 + count_t__ll_495, temp1)",d)#, 'GT'), 8
+    temp1 = count_a__ll_005.copy()
+    blas.saxpy(count_c__ll_005, temp1)
+    blas.saxpy(count_g__ll_495, temp1)
+    blas.saxpy(count_t__ll_495, temp1)
+    res.append(temp1.copy())
+
+    #res[9,:] = numexpr.evaluate("(count_a__ll_003 + count_c__ll_003 + count_g__ll_003 + count_t * ll_99, temp1)",d)#, 'TT'), 9
+    temp1 = cpy_sscal(ll_99, count_t)
+    blas.saxpy(count_c__ll_003, temp1)
+    blas.saxpy(count_g__ll_003, temp1)
+    blas.saxpy(count_a__ll_003, temp1)
+    res.append(temp1.copy())
+
+    #res[10,:] = numexpr.evaluate("(count_a * ll_25 + count_c * ll_25 + count_g * ll_25 + count_t * ll_25)",d)#, 'NN'), 10
+    temp1 = cpy_sscal(ll_25, count_a)
+    blas.saxpy(cpy_sscal(ll_25, count_c), temp1)
+    blas.saxpy(cpy_sscal(ll_25, count_g), temp1)
+    blas.saxpy(cpy_sscal(ll_25, count_t), temp1)
+    res.append(temp1.copy())
+
+    del count_a__ll_003
+    del count_c__ll_003
+    del count_g__ll_003
+    del count_t__ll_003
+    del count_a__ll_005
+    del count_c__ll_005
+    del count_g__ll_005
+    del count_t__ll_005
+    del count_a__ll_495
+    del count_c__ll_495
+    del count_g__ll_495
+    del count_t__ll_495
+    del temp1
     return res
 
 def logLikelihood(count_a_or_dict, count_c=None, count_g=None, count_t=None):
@@ -113,37 +197,99 @@ def logLikelihood(count_a_or_dict, count_c=None, count_g=None, count_t=None):
         count_a_or_dict = count_a_or_dict['A']
     return _logLikelihood2(count_a_or_dict, count_c, count_g, count_t)
 
+
+cdef cmpMax(DTYPE_byte_t* argMax, DTYPE_flt_t* valueMax, DTYPE_flt_t* A, DTYPE_flt_t* B, unsigned int length, DTYPE_byte_t arg_pos):
+    for i in range(length):
+        if B[i] > A[i]:
+            argMax[i] = arg_pos
+            valueMax[i] = B[i]
+
+
+def llMax(ll):
+    """calculate max and argmax from the result of logLikelihood"""
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] AA = ll[0]
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] AC = ll[1]
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] AG = ll[2]
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] AT = ll[3]
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] CC = ll[4]
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] CG = ll[5]
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] CT = ll[6]
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] GG = ll[7]
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] GT = ll[8]
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] TT = ll[9]
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] NN = ll[10]
+
+    cdef unsigned int length = AA.shape[0]
+    cdef np.ndarray[DTYPE_byte_t, ndim=1] argMax = np.zeros((length,), DTYPE_byte)
+    cdef np.ndarray[DTYPE_flt_t, ndim=1] valueMax = np.full((length,), np.finfo(DTYPE_flt).min, DTYPE_flt)
+    cmpMax(&argMax[0], &valueMax[0], &valueMax[0], &AA[0], length, 0) 
+    cmpMax(&argMax[0], &valueMax[0], &valueMax[0], &AC[0], length, 1) 
+    cmpMax(&argMax[0], &valueMax[0], &valueMax[0], &AG[0], length, 2) 
+    cmpMax(&argMax[0], &valueMax[0], &valueMax[0], &AT[0], length, 3) 
+    cmpMax(&argMax[0], &valueMax[0], &valueMax[0], &CC[0], length, 4) 
+    cmpMax(&argMax[0], &valueMax[0], &valueMax[0], &CG[0], length, 5) 
+    cmpMax(&argMax[0], &valueMax[0], &valueMax[0], &CT[0], length, 6) 
+    cmpMax(&argMax[0], &valueMax[0], &valueMax[0], &GG[0], length, 7) 
+    cmpMax(&argMax[0], &valueMax[0], &valueMax[0], &GT[0], length, 8) 
+    cmpMax(&argMax[0], &valueMax[0], &valueMax[0], &TT[0], length, 9) 
+    cmpMax(&argMax[0], &valueMax[0], &valueMax[0], &NN[0], length, 10) 
+    return valueMax, argMax
+
+
 def score_coverage_differences(coverage_a, coverage_b):
     llA = logLikelihood(*coverage_a)
     llB = logLikelihood(*coverage_b)
-    coverage_a = np.array(coverage_a)
-    coverage_b = np.array(coverage_b)
-    llMaxA = llA.max(axis=0)
-    llMaxB = llB.max(axis=0)
-    llArgMaxA = llA.argmax(axis=0)
-    llArgMaxB = llB.argmax(axis=0)
+    llMaxA, llArgMaxA = llMax(llA)
+    llMaxB, llArgMaxB = llMax(llB)
+    
     llArgMaxA[(llMaxA == 0) | (llMaxB == 0)] = 99
     llArgMaxB[(llMaxA == 0) | (llMaxB == 0)] = 99
     #candidates are all where the max LL derived haplotype is not the same
     candidates = np.where(llArgMaxA != llArgMaxB)[0]
     haplotypeA = llArgMaxA[candidates]
     haplotypeB = llArgMaxB[candidates]
-    best_llA = llA[:,candidates][[haplotypeA, xrange(0, len(candidates))]]
-    best_llB = llB[:,candidates][[haplotypeB, xrange(0, len(candidates))]]
+    best_llA = []
+    for ii, candidate_pos in enumerate(candidates):
+        best_llA.append(llA[haplotypeA[ii]][candidate_pos])
+    best_llB = []
+    for ii, candidate_pos in enumerate(candidates):
+        best_llB.append(llB[haplotypeB[ii]][candidate_pos])
+    second_best_llA = []
+    for ii, candidate_pos in enumerate(candidates):
+        second_best_llA .append(llA[haplotypeB[ii]][candidate_pos])
+
+    second_best_llB = []
+    for ii, candidate_pos in enumerate(candidates):
+        second_best_llB .append(llB[haplotypeA[ii]][candidate_pos])
+
+    best_llA = np.array(best_llA)
+    best_llB = np.array(best_llB)
+    second_best_llA = np.array(second_best_llA)
+    second_best_llB = np.array(second_best_llB)
 
     ll_differing = best_llA + best_llB
-    ll_same_haplotypeA = best_llA + \
-            llB[:,candidates][[haplotypeA, xrange(0, len(candidates))]]
-    ll_same_haplotypeB = llA[:,candidates][[haplotypeB, xrange(0, len(candidates))]] + \
-            best_llB
+    ll_same_haplotypeA = best_llA + second_best_llB
+    ll_same_haplotypeB = second_best_llA +  best_llB
     ll_same_max = np.array([ll_same_haplotypeA, ll_same_haplotypeB]).max(axis=0)
         
 
     score = ll_differing - ll_same_max
+    result_cov_a = [
+            coverage_a[0][candidates],
+            coverage_a[1][candidates],
+            coverage_a[2][candidates],
+            coverage_a[3][candidates],
+    ]
+    result_cov_b = [
+            coverage_b[0][candidates],
+            coverage_b[1][candidates],
+            coverage_b[2][candidates],
+            coverage_b[3][candidates],
+    ]
     return (candidates, 
             #llA[:,candidates], llB[:,candidates], llArgMaxA[candidates], llArgMaxB[candidates], \
-            coverage_a[:,candidates], 
-            coverage_b[:,candidates],
+            result_cov_a,
+            result_cov_b,
             score,
             )
 
