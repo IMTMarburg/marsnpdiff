@@ -47,14 +47,14 @@ def find_differing_snps_from_vector(coverage_a, coverage_b, ll_threshold = 50):
 
 def count_coverage_multiple(samfiles, chr, start, stop, quality_threshold):
     """Conut and add the coverage of multiple bam files"""
-    coverage = _marsnpdiff.count_coverage(samfiles[0], chr, start, stop, quality_threshold)
+    coverage = list(_marsnpdiff.count_coverage(samfiles[0], chr, start, stop, quality_threshold))
     for sf in samfiles[1:]:
         cov2 = _marsnpdiff.count_coverage(sf, chr, start, stop, quality_threshold)
         coverage[0] += cov2[0]
         coverage[1] += cov2[1]
         coverage[2] += cov2[2]
         coverage[3] += cov2[3]
-    return coverage
+    return tuple(coverage)
 
 
 def find_differing_snps(sam_filenames_a, sam_filenames_b, chr, start, stop, quality_threshold = 15, ll_threshold = 50):

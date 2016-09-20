@@ -212,7 +212,7 @@ class BamTests(unittest.TestCase):
 
     def test_simple(self):
         res = find_snps(
-            ['sample_data/sample_a.bam'],
+            ['sample_data/sample_a.bam', ],
             ['sample_data/sample_b.bam'],
             {'1': int(1e6)},
             ll_threshold=0,
@@ -223,6 +223,18 @@ class BamTests(unittest.TestCase):
         self.assertTrue((res['pos'] == [10556, 10568]).all())
         self.assertEqual(res['score'][0], res['score'][1])
 
+    def test_simple_twice(self):
+        res = find_snps(
+            ['sample_data/sample_a.bam', 'sample_data/sample_a.bam'],
+            ['sample_data/sample_b.bam'],
+            {'1': int(1e6)},
+            ll_threshold=0,
+            chunk_size=100)
+        self.assertEqual(2, len(res))
+        self.assertTrue((res['pos'] == [10556, 10568]).all())
+        self.assertTrue(((res['score'] - [10556, 10568]) < 0.0001).all())
+        self.assertTrue((res['pos'] == [10556, 10568]).all())
+        self.assertEqual(res['score'][0], res['score'][1])
 
 if __name__ == '__main__':
     unittest.main()
