@@ -68,7 +68,7 @@ cdef float ll_495 = math.log((1-read_error_prob)/2)
 cdef float ll_25 = math.log(0.25)
 
 llPosToHaplotype = [ 'AA', 'AC','AG','AT', 'CC', 'CG','CT','GG', 'GT', 'TT', 'NN']
-
+#                      0     1    2    3     4     5    6    7    8      9    10
 
 def cpy_sscal(factor, vector):
     """Convert blas.sscall into a non-input modifying variant"""
@@ -144,9 +144,9 @@ cdef _logLikelihood2(np.ndarray[DTYPE_flt_t, ndim=1] count_a, np.ndarray[DTYPE_f
 
     #res[7,:] = numexpr.evaluate("(count_a__ll_005 + count_c__ll_005 + count_g * ll_99 + count_t__ll_005, temp1)",d)#, 'GG'), 7
     temp1 = cpy_sscal(ll_99, count_g)
-    blas.saxpy(count_a__ll_005, temp1)
-    blas.saxpy(count_c__ll_005, temp1)
-    blas.saxpy(count_t__ll_005, temp1)
+    blas.saxpy(count_a__ll_003, temp1)
+    blas.saxpy(count_c__ll_003, temp1)
+    blas.saxpy(count_t__ll_003, temp1)
     res.append(temp1.copy())
 
     #res[8,:] = numexpr.evaluate("(count_a__ll_005 + count_c__ll_005 + count_g__ll_495 + count_t__ll_495, temp1)",d)#, 'GT'), 8
@@ -272,9 +272,9 @@ def score_coverage_differences(coverage_a, coverage_b):
     ll_same_haplotypeA = best_llA + second_best_llB
     ll_same_haplotypeB = second_best_llA +  best_llB
     ll_same_max = np.array([ll_same_haplotypeA, ll_same_haplotypeB]).max(axis=0)
-        
-
     score = ll_differing - ll_same_max
+
+
     result_cov_a = [
             coverage_a[0][candidates],
             coverage_a[1][candidates],
