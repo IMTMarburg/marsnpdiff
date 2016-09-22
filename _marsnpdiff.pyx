@@ -292,4 +292,6 @@ def score_coverage_differences(coverage_a, coverage_b):
             result_cov_a,
             result_cov_b,
             score,
+            haplotypeA,
+            haplotypeB
             )

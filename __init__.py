@@ -26,7 +26,7 @@ import random
 
 
 def find_differing_snps_from_vector(coverage_a, coverage_b, ll_threshold = 50):
-    positions, candidate_coverage_a, candidate_coverage_b, scores = _marsnpdiff.score_coverage_differences(coverage_a, coverage_b)
+    positions, candidate_coverage_a, candidate_coverage_b, scores, haplotypeA, haplotypeB = _marsnpdiff.score_coverage_differences(coverage_a, coverage_b)
     ok = scores >= ll_threshold
     candidate_coverage_a[0] = candidate_coverage_a[0][ok]
     candidate_coverage_a[1] = candidate_coverage_a[1][ok]
@@ -41,7 +41,9 @@ def find_differing_snps_from_vector(coverage_a, coverage_b, ll_threshold = 50):
         'positions': positions[ok],
         'coverageA': candidate_coverage_a,
         'coverageB': candidate_coverage_b,
-        'scores': scores[ok]
+        'scores': scores[ok],
+        'haplotypeA': haplotypeA[ok],
+        'haplotypeB': haplotypeB[ok],
     }
 
 
@@ -112,7 +114,10 @@ def find_snps(
         'B_A': [],
         'B_C': [],
         'B_G': [],
-        'B_T': [], }
+        'B_T': [], 
+        'haplotypeA': [],
+        'haplotypeB': [],
+        }
     for found in all_snps_found:
         res['chr'].extend([found['chr']] * len(found['positions']))
         res['pos'].extend(found['positions'])
@@ -125,10 +130,12 @@ def find_snps(
         res['B_C'].extend(found['coverageB'][1])
         res['B_G'].extend(found['coverageB'][2])
         res['B_T'].extend(found['coverageB'][3])
+        res['haplotypeA'].extend([_marsnpdiff.llPosToHaplotype[x] for x in found['haplotypeA']])
+        res['haplotypeB'].extend([_marsnpdiff.llPosToHaplotype[x] for x in found['haplotypeB']])
     p.close()
     p.join()
     return pandas.DataFrame(res)[['chr', 'pos', 'score', 'A_A', 'B_A', 'A_C', 'B_C',
-            'A_G', 'B_G', 'A_T', 'B_T']]
+            'A_G', 'B_G', 'A_T', 'B_T', 'haplotypeA', 'haplotypeB']]
 
 
 if __name__ == '__main__':
